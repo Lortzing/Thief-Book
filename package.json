@@ -1,7 +1,7 @@
 {
   "name": "thief-book",
   "productName": "Thief Book",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "极简摸鱼阅读器：老板键、悬停显隐、hjkl 翻页、自动记忆阅读进度",
   "main": "src/main/index.js",
   "author": "tal",
