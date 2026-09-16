@@ -1,0 +1,196 @@
+/* Thief Book 设置窗口。视觉语言与 reader.css 一致：克制的深色系统风。
+   单列窄表单：分组卡片 + 左标签右控件，13px 系统字体栈，无花哨动效。 */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root { color-scheme: dark; }
+
+html { height: 100%; }
+
+body {
+  min-height: 100%;
+  background: #16181d;
+  color: #e8e6e3;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.page { max-width: 520px; margin: 0 auto; padding: 16px 18px 28px; }
+
+/* ---- 分组 ---- */
+
+.group {
+  margin-bottom: 14px;
+  padding: 12px 14px 14px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.group > h2 {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(232, 230, 227, 0.5);
+}
+
+.row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+
+.label { flex: 0 0 72px; color: rgba(232, 230, 227, 0.85); }
+
+.unit { font-size: 12px; color: rgba(232, 230, 227, 0.45); }
+
+/* ---- 控件 ---- */
+
+input[type="number"], input[type="text"] {
+  height: 26px;
+  padding: 0 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e8e6e3;
+  font: inherit;
+  outline: none;
+}
+input[type="number"] { width: 84px; }
+input[type="text"] { width: 220px; }
+input[type="number"]:focus, input[type="text"]:focus { border-color: rgba(232, 230, 227, 0.35); }
+
+input[type="checkbox"] { accent-color: #cfcdc9; }
+
+.row.check { padding: 4px 0; }
+.row.check label { display: flex; align-items: center; gap: 8px; }
+.tip { font-size: 12px; color: rgba(232, 230, 227, 0.45); }
+
+button {
+  height: 26px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e8e6e3;
+  font: inherit;
+  cursor: default;
+}
+button:hover { background: rgba(255, 255, 255, 0.11); }
+button:active { background: rgba(255, 255, 255, 0.05); }
+button:focus-visible { outline: 1px solid rgba(232, 230, 227, 0.5); outline-offset: 1px; }
+
+/* 主按钮：反色（浅底深字），与整体单色语言一致 */
+button.primary {
+  background: #e8e6e3;
+  border-color: #e8e6e3;
+  color: #16181d;
+  font-weight: 600;
+}
+button.primary:hover { background: #ffffff; }
+button.primary:active { background: #d4d2ce; }
+
+.foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.foot.tight { margin-top: 0; }
+
+/* ---- 状态与错误 ---- */
+
+.status {
+  font-size: 12px;
+  color: #93c89d;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status.err, .err { font-size: 12px; color: #f0948f; }
+
+.key-row .err {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- 键位录制 ---- */
+
+.keycap {
+  min-width: 148px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(232, 230, 227, 0.92);
+}
+.keycap.rec {
+  border-style: dashed;
+  border-color: rgba(232, 230, 227, 0.45);
+  color: rgba(232, 230, 227, 0.55);
+}
+
+/* ---- 主题 ---- */
+
+.seg { display: flex; gap: 6px; }
+.seg button.active {
+  background: rgba(232, 230, 227, 0.16);
+  border-color: rgba(232, 230, 227, 0.4);
+}
+
+.swatch {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+}
+#color-err { margin: 2px 0 0 82px; }
+
+/* ---- 书单 ---- */
+
+.book-row {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+.book-row.current {
+  background: rgba(232, 230, 227, 0.07);
+  border-color: rgba(232, 230, 227, 0.22);
+}
+
+.book-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.book-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.badge {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+  border-radius: 4px;
+  color: #16181d;
+  background: rgba(232, 230, 227, 0.85);
+}
+
+.book-sub { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.book-pct { font-variant-numeric: tabular-nums; color: rgba(232, 230, 227, 0.85); }
+.book-time { font-size: 11px; color: rgba(232, 230, 227, 0.45); font-variant-numeric: tabular-nums; }
+.book-ops { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.book-ops button { height: 22px; padding: 0 8px; font-size: 12px; }
+.book-ops button.remove { color: #f0948f; }
+.book-ops input[type="number"] { height: 22px; width: 52px; padding: 0 6px; font-size: 12px; text-align: center; }
+
+.empty { margin-top: 8px; font-size: 12px; color: rgba(232, 230, 227, 0.45); }

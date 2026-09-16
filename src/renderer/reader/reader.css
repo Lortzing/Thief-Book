@@ -1,0 +1,125 @@
+/* Thief Book 阅读条。
+   尺寸常量与 src/main/reader-window.js 严格对应：
+   PAD_TOP 10 / PAD_BOTTOM 8 / GRIP 22 / PAD_LEFT 6 / PAD_RIGHT 14
+   CHAPTER_H 22 / FOOTER_H 19 / 行高 = round(fontSize * 1.55)（JS 按字号设置） */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+:root {
+  --bg: rgba(255, 255, 255, 0.8);
+  --fg: #1d1d1f;
+  --font-size: 15px;
+}
+
+#bar {
+  display: flex;
+  height: 100%;
+  border-radius: 10px;
+  background: transparent;
+  overflow: hidden;
+  position: relative;
+  transition: background 0.18s ease;
+}
+
+/* 可见态才有底色与毛玻璃——隐身态必须完全透明，不能残留模糊块 */
+#bar.shown {
+  background: var(--bg);
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+}
+
+#grip {
+  flex: 0 0 22px;
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg);
+  opacity: 0.25;
+  font-size: 11px;
+  cursor: grab;
+  transition: opacity 0.18s ease;
+}
+#grip:hover { opacity: 0.6; }
+
+#content {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 14px 8px 6px;
+  transition: opacity 0.18s ease;
+}
+
+#bar:not(.shown) #content,
+#bar:not(.shown) #grip,
+#bar:not(.shown) #hairlinetrack {
+  opacity: 0;
+}
+
+#chapter {
+  height: 22px;
+  line-height: 22px;
+  font-size: 11.5px;
+  color: var(--fg);
+  opacity: 0.58;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: grab; /* 章节行兼作拖拽把手 */
+}
+
+#lines {
+  color: var(--fg);
+  font-size: var(--font-size);
+}
+
+.line {
+  white-space: pre;
+  overflow: hidden;
+}
+
+.line.hint { opacity: 0.55; }
+
+#footer {
+  height: 19px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--fg);
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#hairlinetrack {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 3px;
+  height: 2px;
+  transition: opacity 0.18s ease;
+}
+
+#hairline {
+  height: 100%;
+  width: 0%;
+  border-radius: 1px;
+  background: var(--fg);
+  transition: width 0.2s ease;
+}
+
+#bar.shown #hairlinetrack { opacity: 0.22; }

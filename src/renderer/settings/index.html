@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+  <title>设置 — Thief Book</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <main class="page">
+    <section class="group">
+      <h2>键位</h2>
+      <div class="row key-row" data-field="next">
+        <span class="label">下一页</span>
+        <button type="button" class="keycap"></button>
+        <span class="err"></span>
+      </div>
+      <div class="row key-row" data-field="prev">
+        <span class="label">上一页</span>
+        <button type="button" class="keycap"></button>
+        <span class="err"></span>
+      </div>
+      <div class="row key-row" data-field="nextCh">
+        <span class="label">下一章</span>
+        <button type="button" class="keycap"></button>
+        <span class="err"></span>
+      </div>
+      <div class="row key-row" data-field="prevCh">
+        <span class="label">上一章</span>
+        <button type="button" class="keycap"></button>
+        <span class="err"></span>
+      </div>
+      <div class="row key-row" data-field="boss">
+        <span class="label">老板键</span>
+        <button type="button" class="keycap"></button>
+        <span class="err"></span>
+      </div>
+      <div class="foot">
+        <button type="button" id="save-keys" class="primary">保存键位</button>
+        <span id="keys-status" class="status"></span>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>外观</h2>
+      <div class="row">
+        <span class="label">字号</span>
+        <input type="number" id="font-size" min="9" max="40" step="1">
+      </div>
+      <div class="row">
+        <span class="label">每页行数</span>
+        <input type="number" id="lines" min="1" max="6" step="1">
+      </div>
+      <div class="row">
+        <span class="label">宽度</span>
+        <input type="number" id="width" min="280" max="1600" step="10">
+        <span class="unit">px</span>
+      </div>
+      <div class="row">
+        <span class="label">主题</span>
+        <div class="seg" id="theme-seg">
+          <button type="button" data-theme="dark">深色</button>
+          <button type="button" data-theme="light">浅色</button>
+          <button type="button" data-theme="custom">自定义</button>
+        </div>
+      </div>
+      <div class="row" id="bg-color-row" hidden>
+        <span class="label">背景色</span>
+        <input type="text" id="bg-color" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="row" id="fg-color-row" hidden>
+        <span class="label">文字色</span>
+        <input type="text" id="fg-color" spellcheck="false" autocomplete="off">
+        <span class="swatch" id="color-swatch">文</span>
+      </div>
+      <div class="err" id="color-err"></div>
+      <div class="row check">
+        <label><input type="checkbox" id="show-chapter">显示章节标题</label>
+      </div>
+      <div class="row check">
+        <label><input type="checkbox" id="show-progress">显示进度</label>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>行为</h2>
+      <div class="row check">
+        <label><input type="checkbox" id="hover-mode">悬停显示正文<span class="tip">关闭后正文常显</span></label>
+      </div>
+      <div class="row">
+        <span class="label">隐藏延迟</span>
+        <input type="number" id="hide-delay" min="50" max="3000" step="50">
+        <span class="unit">毫秒</span>
+      </div>
+      <div class="row check">
+        <label><input type="checkbox" id="resume-on-start">启动时恢复上次书籍</label>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>书单</h2>
+      <div class="foot tight">
+        <button type="button" id="open-book" class="primary">打开小说…</button>
+        <span id="book-status" class="status"></span>
+      </div>
+      <div id="book-list"></div>
+      <div class="empty" id="book-empty" hidden>暂无书籍，点「打开小说…」选择 TXT 文件</div>
+    </section>
+  </main>
+  <script src="settings.js"></script>
+</body>
+</html>

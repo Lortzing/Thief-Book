@@ -1,232 +1,74 @@
-![b.png](./images/b.png)
+# Thief Book 4.0
 
-# 介绍
+极简摸鱼阅读器：一条贴在屏幕底部的透明阅读条，鼠标移过去才浮现，移开就隐身，老板键一键消失。
 
-**Thief-Book** 是一款真正的最强`摸鱼神器`，可以更加隐秘性大胆的看小说，炒股。
+本仓库是 [cteamx/Thief-Book](https://github.com/cteamx/Thief-Book)（[marcoxiong](https://github.com/marcoxiong/Thief-Book) 的活跃 fork）的完全重写：**零运行时依赖、无打包器**（源码即产物）、现代 Electron 沙箱安全模型。设计文档见 [docs/DESIGN.md](docs/DESIGN.md)。
 
-- **隐蔽性** 自定义透明背景，随意调整大小，完美融入各种软件界面
-- **快捷性** 三个快捷键，实现完美的摸鱼
-- **跨平台** 支持 Mac+Win，Linux 暂未测试，请自行打包
+## 特性
 
-# VScode
+- **悬停显隐** —— 平时完全透明、点击穿透；鼠标移到阅读条上，正文 180ms 淡入，移开（可调延迟）自动隐身。关闭后正文常显。
+- **老板键** —— `⌘/Ctrl + Shift + B` 一键隐藏整条窗口，再按恢复原位原进度。托盘左键同效。
+- **hjkl 翻页** —— `j`/`k` 翻页、`l`/`h` 跳章，仅在鼠标悬停于阅读条时生效，绝不干扰打字。滚轮、左键单击同样翻页。键位全部可改。
+- **进度记忆** —— 按**字符位置**记忆每本书的进度（改字号/宽度后仍对齐），翻页防抖落盘，启动自动恢复；最近书单随时可达。
+- **编码自动识别** —— UTF-8 / UTF-16 / GB18030(GBK) / Big5 全自动，简繁皆宜，无需手动勾“乱码”。
+- **确定性分页** —— 章节感知的贪心排版，页界可复现；最后一页自动标记“（完）”。
 
-**Thief-Book** 为用户提供 **Vscode** 版本，具体请看 https://github.com/cteamx/Thief-Book-VSCode
+## 快速开始
 
-# 下载地址
+```bash
+npm install
+npm start
+```
 
-https://github.com/cteamx/Thief-Book/releases
+需要 Node.js ≥ 18。macOS 上启动后 Dock 不出现图标，从**托盘**（屏幕右上角）右键打开菜单与设置。
 
-# 版本区分
+## 使用
 
-- **MAC** 支持 桌面模式 + 任务栏模式 + TouchBar 模式
-- **WIN** 只有 桌面模式
+| 动作 | 效果 |
+|---|---|
+| 鼠标移到阅读条上 | 正文淡入、翻页键接通 |
+| 鼠标移开 | 正文淡出、点击穿透 |
+| `j` / `k` | 下一页 / 上一页（默认键位） |
+| `l` / `h` | 下一章 / 上一章 |
+| 滚轮 / 左键单击 | 下翻 / 上翻 |
+| `⌘/Ctrl + Shift + B` | 老板键：整条隐藏 / 恢复 |
+| 左侧把手拖动 | 调整位置（记忆） |
+| 右键 | 菜单：翻页 / 打开 / 最近阅读 / 设置 / 退出 |
 
-# 使用效果
+所有键位可在设置窗口录制修改（支持单键与组合键，实时检测冲突）。
 
-### Mac 任务栏模式
+## 数据
 
-> 任务栏过多会自动隐藏
+设置与全部书籍进度保存在单一文件：
 
-小说演示
+- macOS: `~/Library/Application Support/Thief Book/reader-store.json`
+- Windows: `%APPDATA%/Thief Book/reader-store.json`
 
-![1.png](./images/1.png)
+JSON 损坏会自动备份重建，不会丢失到打不开。
 
-股票演示
+## 常见问题
 
-![1_1.png](./images/1_1.png)
+- **打开是乱码？** 4.0 全自动识别编码（UTF-8 / UTF-16 / GBK / Big5），一般无需处理；极冷门编码请先转 UTF-8。
+- **老板键没反应？** 多半被其他软件占用，设置 → 键位 → 点“老板键”重新录制，会实时提示冲突。
+- **翻页键打字时干扰输入？** 不会——翻页键只在鼠标悬停于阅读条上时注册，移开即注销。
 
-### Mac + Win 桌面模式
+## 与 3.x 的差异
 
-> 此版本可以随意拖拽，自定义大小，自定义背景颜色和文字颜色
->
-> Mac 版本，支持 TouchBar 翻页 和 老板键
+砍掉了股票、网页、视频、PDF、TouchBar、任务栏标题、自动翻页与搜索页，只做一件事：安静地看 TXT。运行时依赖从 10 个降到 **0 个**。
 
-小说演示
+## 开发
 
-![2.png](./images/2.png)
+```bash
+npm test        # 零依赖单测（编码 / 分页 / 章节识别 / 持久化 / 书籍会话，49 个用例）
+npm start       # 运行
+npm run dist:mac  # 打包 macOS arm64 zip（无签名）
+```
 
-股票演示
+## 致谢
 
-![2_2.png](./images/2_2.png)
+- 原版 [cteamx/Thief-Book](https://github.com/cteamx/Thief-Book) 与 [marcoxiong](https://github.com/marcoxiong/Thief-Book) 的维护
+- VSCode 插件版：[Thief-Book-VSCode](https://github.com/cteamx/Thief-Book-VSCode)
 
-Mac TouchBar 按键
+## License
 
-![x1.jpeg](./images/x1.jpeg)
-
-### Mac TouchBar 模式
-
-> Mac 的朋友们有福了，这可以说是 Thief-Book 最强大的功能了
->
-> 注意：必须获取内存框的焦点，才能使用 Touch Bar
-
-![x.jpeg](./images/x.jpeg)
-
-### 实际使用效果
-
-idea 编辑器 使用效果
-
-![2.png](./images/4.png)
-
-### 设置界面
-
-GBK 会出现乱码，请勾选乱码选项
-
-![3.png](./images/3.png)
-
-## 动态演示
-
-图片过大，加载太慢请访问URL查看
-
-**Mac**
-
-https://github.com/cteamx/Thief-Book/blob/master/images/mac.gif
-
-**Win**
-
-https://github.com/cteamx/Thief-Book/blob/master/images/win.gif
-
-**鼠标模式**
-
-切换鼠标模式，请先移动窗口到指定的位置(鼠标模式启动后不支持移动窗口)，按下一页启动鼠标模式。
-
-鼠标左键下一页，右键上一页，鼠标移开自动隐藏
-
-https://github.com/cteamx/Thief-Book/blob/master/images/mouse.gif
-
-# 注意事项
-
-- **股票** ( 5秒更新一次 ) , 显示格式为  `当前价格`,`跌涨百分比`
-
-- **股票代码格式**，列：贵州茅台 ( 600519.SH ) ，设置里写 **sh600519**
-
-- **TouchBar模式** 必须获取内存框的焦点，才能使用 **Touch Bar**
-
-- **乱码问题** 勾选乱码选择框即可
-
-  
-
-# 快捷键
-
-## 默认按键
-
-### MAC
-
-<kbd>**Cmd+Option+M** </kbd> 老板键
-
-<kbd>**Cmd+Option+,** </kbd>上一页
-
-<kbd>**Cmd+Option+.**</kbd> 下一页 
-
-### WIN
-
-<kbd>**Ctrl+Alt+M** </kbd> 老板键
-
-<kbd>**Ctrl+Alt+,** </kbd>上一页
-
-<kbd>**Ctrl+Alt+.** </kbd>下一页 
-
-## 自定义按键列表
-
-**自定义后需重启**
-
-> 快捷键可以包含多个功能键和一个键码的字符串，由符号+结合，用来定义你应用中的键盘快捷键
-
-### 示例：
-
-- CmdOrCtrl+A
-- CmdOrCtrl+Shift+Z
-
-> 在 Linux 和 Windows 上, Command 键没有任何效果, 所以使用 CommandOrControl表述, macOS 是 Command ，在 Linux 和 Windows 上是Control。
-> 使用 Alt 代替Option. Option 键只在 macOS 系统上存在, 而 Alt 键在任何系统上都有效.
-> Super键是指 Windows 和 Linux 系统上的 Windows 键，但在 macOS 里为 Cmd 键.
-
-### 可用的功能键
-
-- Command (缩写为Cmd)
-- Control (缩写为Ctrl)
-- CommandOrControl (缩写为 CmdOrCtrl)
-- Alt
-- Option
-- AltGr
-- Shift
-- Super
-
-### 可用的普通按键
-
-- 0 to 9
-- A to Z
-- F1 to F24
-- 类似~, !, @, #, $的标点符号
-- Plus
-- Space
-- Tab
-- 大写锁定（Capslock）
-- 数字锁定（Numlock）
-- Backspace
-- Delete
-- Insert
-- Return (等同于 Enter)
-- Up, Down, Left and Right
-- Home 和 End
-- PageUp 和 PageDown
-- Escape (缩写为 Esc)
-- VolumeUp, VolumeDown 和 VolumeMute
-- MediaNextTrack、MediaPreviousTrack、MediaStop 和 MediaPlayPause
-- PrintScreen
-
-### 小键盘按键
-
-- num1-num9 -数字1-数字9
-- numdec - 小数点
-- numadd - 加号
-- numsub - 减号
-- nummult - 乘号
-- numdiv - 除号
-
-# 异常汇总
-
-## 乱码问题
-
-如果乱码 设置->勾选乱码
-
-or
-
-转成 utf-8 格式
-
-**Mac:** 浏览器打开->复制->存入到新的txt文本里
-
-**Win:** 打开->另存为->选择utf-8->保存
-
-## A JavaScript error occurred in the main process 
-
-有可能是小说路径不对，保证小说路径正确即可
-
-or
-
-Json文件路径
-
-Win: C:\Users\Administrator\AppData\Roaming\thief-book
-
-快捷键设置错打开会报错，找到 thief_data.json 没有就搜索 thief_data.json 修改里面的快捷键信息即可
-
-Mac：open -e ~/Library/Application\ Support/thief-book/thief_data.json （执行这个编辑即可）
-
-or
-
-把 thief_data.json 删掉， 删掉重启即可，当前页码会清空，请先记住页码在删除
-
-# TODO
-
-- [ ] 多本小说管理
-- [ ] 在线小说下载
-
-## 关于
-
-- 出品：C.TEAM
-- E-mail：service@c.team
-
-## 反馈群
-
-加微信，备注 摸鱼 拉人
-
-![wechat](./images/wechat.jpg)
+MIT
