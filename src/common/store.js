@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   nextChapterKey: 'l',
   prevChapterKey: 'h',
   hoverMode: true,
+  wheelPaging: true,
   hideDelayMs: 300,
   fontSize: 15,
   lines: 2,

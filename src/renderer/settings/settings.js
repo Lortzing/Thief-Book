@@ -252,6 +252,55 @@
   }
 
   // ---------------------------------------------------------------------------
+  // 右上角保存:幂等回写全部当前界面值(兼作即时保存失败时的重试入口)
+  // ---------------------------------------------------------------------------
+
+  function saveStatus(msg, isErr) {
+    const s = el('save-status');
+    s.textContent = msg || '';
+    s.classList.toggle('err', !!isErr);
+  }
+
+  el('save-all').addEventListener('click', async () => {
+    cancelRecording();
+    saveStatus('保存中…');
+    const sets = [];
+    for (const [id, key] of [
+      ['font-size', 'fontSize'],
+      ['lines', 'lines'],
+      ['width', 'width'],
+      ['hide-delay', 'hideDelayMs'],
+    ]) {
+      const input = el(id);
+      const [lo, hi] = RANGES[key];
+      let n = Math.round(Number(input.value));
+      if (!Number.isFinite(n)) n = settings[key];
+      n = Math.min(hi, Math.max(lo, n));
+      input.value = n;
+      sets.push(api.set(key, n));
+    }
+    for (const [id, key] of [
+      ['show-chapter', 'showChapter'],
+      ['show-progress', 'showProgress'],
+      ['hover-mode', 'hoverMode'],
+      ['wheel-paging', 'wheelPaging'],
+      ['resume-on-start', 'resumeOnStart'],
+    ]) {
+      sets.push(api.set(key, el(id).checked));
+    }
+    sets.push(api.set('theme', settings.theme));
+    sets.push(api.set('bgColor', settings.bgColor));
+    sets.push(api.set('fgColor', settings.fgColor));
+    try {
+      const rs = await Promise.all(sets);
+      if (rs.every((r) => !r || r.ok)) saveStatus('已保存');
+      else saveStatus('部分设置未生效', true);
+    } catch {
+      saveStatus('保存失败', true);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
   // 书单
   // ---------------------------------------------------------------------------
 
@@ -425,6 +474,7 @@
     bindCheck('show-chapter', 'showChapter');
     bindCheck('show-progress', 'showProgress');
     bindCheck('hover-mode', 'hoverMode');
+    bindCheck('wheel-paging', 'wheelPaging');
     bindCheck('resume-on-start', 'resumeOnStart');
     bindColor('bg-color', 'bgColor');
     bindColor('fg-color', 'fgColor');

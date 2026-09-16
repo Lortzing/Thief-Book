@@ -26,6 +26,17 @@ body {
 
 .page { max-width: 520px; margin: 0 auto; padding: 16px 18px 28px; }
 
+/* ---- 页头 ---- */
+
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.page-head h1 { font-size: 15px; font-weight: 700; }
+#save-status { margin-left: auto; }
+
 /* ---- 分组 ---- */
 
 .group {

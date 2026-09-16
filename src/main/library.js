@@ -161,6 +161,7 @@ class Library {
       showChapter: s.showChapter,
       showProgress: s.showProgress,
       hoverMode: s.hoverMode,
+      wheelPaging: s.wheelPaging,
     };
   }
 

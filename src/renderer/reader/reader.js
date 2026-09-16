@@ -19,6 +19,7 @@
   const WHEEL_DEBOUNCE_MS = 180;
 
   let lastWheelAt = 0;
+  let wheelPaging = true; // 由外观推送携带,可在设置中关闭
 
   function applyAppearance(a) {
     if (!a) return;
@@ -29,6 +30,7 @@
     linesEl.style.lineHeight = `${Math.round(a.fontSize * LINE_HEIGHT_FACTOR)}px`;
     chapterEl.style.display = a.showChapter ? '' : 'none';
     el('footer').style.display = a.showProgress ? '' : 'none';
+    wheelPaging = a.wheelPaging !== false;
   }
 
   function makeLine(text, cls) {
@@ -99,6 +101,7 @@
     'wheel',
     (e) => {
       e.preventDefault();
+      if (!wheelPaging) return;
       const now = Date.now();
       if (now - lastWheelAt < WHEEL_DEBOUNCE_MS) return;
       if (e.deltaY > 1.5) {

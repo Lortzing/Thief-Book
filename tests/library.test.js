@@ -218,7 +218,7 @@ test('appearance: 外观子集字段齐全', () => {
   const a = lib.appearance();
   assert.deepStrictEqual(
     Object.keys(a).sort(),
-    ['bgColor', 'fgColor', 'fontSize', 'hoverMode', 'lines', 'showChapter', 'showProgress', 'theme', 'width'].sort()
+    ['bgColor', 'fgColor', 'fontSize', 'hoverMode', 'lines', 'showChapter', 'showProgress', 'theme', 'wheelPaging', 'width'].sort()
   );
   assert.strictEqual(a.fontSize, 18);
   assert.strictEqual(a.theme, 'light');

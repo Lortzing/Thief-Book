@@ -8,6 +8,11 @@
 </head>
 <body>
   <main class="page">
+    <header class="page-head">
+      <h1>设置</h1>
+      <span id="save-status" class="status"></span>
+      <button type="button" id="save-all" class="primary">保存</button>
+    </header>
     <section class="group">
       <h2>键位</h2>
       <div class="row key-row" data-field="next">
@@ -86,6 +91,9 @@
       <h2>行为</h2>
       <div class="row check">
         <label><input type="checkbox" id="hover-mode">悬停显示正文<span class="tip">关闭后正文常显</span></label>
+      </div>
+      <div class="row check">
+        <label><input type="checkbox" id="wheel-paging">滚轮翻页<span class="tip">关闭后滚轮不再翻页</span></label>
       </div>
       <div class="row">
         <span class="label">隐藏延迟</span>

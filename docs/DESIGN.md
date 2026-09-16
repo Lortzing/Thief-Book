@@ -61,7 +61,7 @@ BOM(UTF-8/UTF-16) 优先，其后严格 UTF-8。GB18030 与 Big5 的字节流几
 ### 翻页
 - 默认键位 j=下一页 k=上一页 l=下一章 h=上一章，均可改（任意 Electron accelerator，支持单键）。
 - 仅在鼠标悬停于阅读条时注册生效，不干扰平时打字。
-- 滚轮：向下=下一页，向上=上一页，180ms 防抖。左键单击=下一页。
+- 滚轮：向下=下一页，向上=上一页，180ms 防抖（`wheelPaging` 可关）。左键单击=下一页。
 - 最后一页末尾追加"（完）"。
 
 ### 进度与书单
@@ -107,7 +107,7 @@ BOM(UTF-8/UTF-16) 优先，其后严格 UTF-8。GB18030 与 Big5 的字节流几
 PageState  = { lines: string[], chapterTitle: string|null, percent: number,
                bookName: string, hasPrev: bool, hasNext: bool, isEnd: bool }
 Appearance = { fontSize, lines, width, theme, bgColor, fgColor,
-               showChapter, showProgress, hoverMode }
+               showChapter, showProgress, hoverMode, wheelPaging }
 BookRow    = { path, name, percent, updatedAt }
 ```
 
