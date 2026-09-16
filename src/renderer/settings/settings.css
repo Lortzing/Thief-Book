@@ -26,13 +26,19 @@ body {
 
 .page { max-width: 520px; margin: 0 auto; padding: 16px 18px 28px; }
 
-/* ---- 页头 ---- */
+/* ---- 页头:吸顶浮层,滚到任意位置都可直接点保存 ---- */
 
 .page-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 14px;
+  margin: -16px -18px 14px; /* 抵消 .page 内边距:吸顶时横向盖住滚动经过的内容 */
+  padding: 12px 18px 10px;
+  background: #16181d;      /* 与 body 同色,顶部无边距也无接缝 */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 .page-head h1 { font-size: 15px; font-weight: 700; }
 #save-status { margin-left: auto; }
