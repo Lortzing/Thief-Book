@@ -47,6 +47,7 @@
     "linux": {
       "category": "Utility",
       "icon": "assets/icons/icon-512.png",
+      "maintainer": "Lortzing <Lortzing@users.noreply.github.com>",
       "target": [
         { "target": "AppImage", "arch": ["x64"] },
         { "target": "deb", "arch": ["x64"] }
