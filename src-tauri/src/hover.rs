@@ -6,10 +6,10 @@
 //! tao 从非主线程发起时会向主线程投递消息并同步等待——若此时主线程正等
 //! 本线程持有的锁,即互等死锁。因此:锁内只改内存状态,锁外做系统调用。
 //!
-//! 光标读取:macOS 下 tao 的 cursor_position 把逻辑坐标与主屏物理高度混算
-//! (Retina 下错误),但公式确定,可反推;Windows/Linux 返回物理像素,按所在
-//! 显示器缩放换算。不用 device_query——它的 new() 每次都调
-//! application_is_trusted_with_prompt(),轮询频率下等于权限弹窗轰炸。
+//! 光标读取:macOS 直读 NSEvent.mouseLocation(公开 API,全局逻辑点,主屏
+//! 左下原点,无需任何权限);Windows/Linux 用 cursor_position(物理像素,按所在
+//! 显示器缩放换算)。tao 的 cursor_position 与 device_query 都不可用:前者在
+//! Retina 下单位混算(逆推公式经实测仍会漂移出屏),后者每次调用触发辅助权限弹窗。
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -25,20 +25,18 @@ const DRAG_MAX_MS: u64 = 30_000;  // 兜底:mouseup 丢失时不至于永久粘�
 
 /// 光标位置(逻辑像素,全局坐标空间,主屏左上为原点)。
 pub fn cursor_logical(app: &AppHandle) -> Option<(f64, f64)> {
-    let p = app.cursor_position().ok()?;
     #[cfg(target_os = "macos")]
     {
-        // tao 实现:NSEvent.mouseLocation(主屏左下原点逻辑点,记 x_l/y_b)→
-        //   reported = (x_l·S, (H_phys − y_b)·S),S=主屏缩放,H_phys=主屏物理高。
-        // 逆变换:y_topdown = H_phys/S − H_phys + reported.y/S
+        use objc2_app_kit::NSEvent;
+        let loc = unsafe { NSEvent::mouseLocation() }; // 左下原点
         let m = app.primary_monitor().ok().flatten()?;
         let s = m.scale_factor();
-        let h_phys = m.size().height as f64;
-        Some((p.x / s, h_phys / s - h_phys + p.y / s))
+        let h_logical = m.size().height as f64 / s; // 主屏逻辑高
+        Some((loc.x, h_logical - loc.y)) // 翻转为左上原点
     }
     #[cfg(not(target_os = "macos"))]
     {
-        // Windows/Linux:物理像素,按所在显示器缩放换算
+        let p = app.cursor_position().ok()?;
         let m = app.monitor_from_point(p.x, p.y).ok().flatten()?;
         let s = m.scale_factor();
         Some((p.x / s, p.y / s))

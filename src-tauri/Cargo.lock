@@ -3725,6 +3725,7 @@ dependencies = [
 name = "thief-book"
 version = "5.0.0"
 dependencies = [
+ "objc2-app-kit",
  "serde",
  "serde_json",
  "tauri",

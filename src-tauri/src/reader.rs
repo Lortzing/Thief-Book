@@ -114,9 +114,11 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     .position(x, y)
     .build()?;
 
-    // 实例级再关一次 webview 白底:创建期的 config 级 drawsBackground 在
-    // 新版 macOS 上可能不生效,set_background_color 走 WKWebView 实例 KVC
-    let _ = win.set_background_color(Some(tauri::utils::config::Color(0, 0, 0, 0)));
+    // Webview 层的 set_background_color 直达 wry 实例:对 WKWebView 实例做
+    // drawsBackground=false KVC + underPageBackgroundColor 透明——创建期的
+    // config 级设置在新版 macOS 上不生效
+    let wv: &tauri::Webview = win.as_ref();
+    let _ = wv.set_background_color(Some(tauri::utils::config::Color(0, 0, 0, 0)));
 
     // 初始隐藏态:悬停模式下正文隐藏 + 点击穿透
     {
