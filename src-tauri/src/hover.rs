@@ -98,7 +98,7 @@ fn tick(app: &AppHandle) {
                 let state = app.state::<Mutex<UiState>>();
                 state.lock().unwrap().keys_active = false;
             }
-            crate::shortcuts::set_page_keys(app, false);
+            crate::shortcuts::dispatch_set_page_keys(app, false);
         }
         return;
     }
@@ -160,7 +160,7 @@ fn tick(app: &AppHandle) {
                         let state = app.state::<Mutex<UiState>>();
                         state.lock().unwrap().keys_active = false;
                     }
-                    crate::shortcuts::set_page_keys(app, false);
+                    crate::shortcuts::dispatch_set_page_keys(app, false);
                 }
             }
         }
@@ -200,6 +200,6 @@ fn tick(app: &AppHandle) {
         crate::reader::apply_visible(app, v);
     }
     if let Some(k) = keys {
-        crate::shortcuts::set_page_keys(app, k);
+        crate::shortcuts::dispatch_set_page_keys(app, k);
     }
 }
