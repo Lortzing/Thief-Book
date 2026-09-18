@@ -100,6 +100,9 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     .title("Thief Book")
     .decorations(false)
     .transparent(true)
+    // 显式全透明背景色:macOS 12+ 的 WKWebView 会在页面透明处垫
+    // underPageBackgroundColor(默认系统底色),必须显式给透明值才真透
+    .background_color(tauri::utils::config::Color(0, 0, 0, 0))
     .always_on_top(true)
     .skip_taskbar(true)
     .resizable(false)
