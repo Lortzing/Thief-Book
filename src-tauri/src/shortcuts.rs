@@ -66,7 +66,13 @@ pub fn set_page_keys(app: &AppHandle, active: bool) {
             let ok = gs
                 .on_shortcut(accel, move |app, _shortcut, event| {
                     if event.state == ShortcutState::Pressed {
-                        app.emit_to(READER_LABEL, "reader:page", dir).ok();
+                        // 回调运行在热键管理线程且处于插件持锁的分发中:
+                        // emit_to 会撞 wry 的 pending_scripts 锁/主线程限制,与主线程
+                        // 的 unregister 互等死锁。只入队,主线程稍后发事件。
+                        let app2 = app.clone();
+                        let _ = app.run_on_main_thread(move || {
+                            app2.emit_to(READER_LABEL, "reader:page", dir).ok();
+                        });
                     }
                 })
                 .is_ok();
