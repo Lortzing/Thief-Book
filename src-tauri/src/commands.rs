@@ -271,14 +271,6 @@ pub fn popup_menu(app: AppHandle) {
     }
 }
 
-/// 调试探针:webview 收到事件后回声,验证 Rust→webview 事件链路。
-#[tauri::command]
-pub fn debug_pong(tag: String) {
-    if std::env::var_os("THIEF_DEBUG").is_some() {
-        eprintln!("[pong] {tag}");
-    }
-}
-
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
     app.exit(0);

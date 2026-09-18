@@ -168,14 +168,8 @@ import { Library } from '../../common/session.mjs';
 
   // ---- 订阅 ----
 
-  listen('reader:visible', (v) => {
-    setVisible(v);
-    invoke('debug_pong', { tag: `visible:${v}` }).catch(() => {});
-  });
-  listen('reader:page', (dir) => {
-    invoke('debug_pong', { tag: `page:${dir}` }).catch(() => {});
-    pageCmd(dir);
-  });
+  listen('reader:visible', (v) => setVisible(v));
+  listen('reader:page', (dir) => pageCmd(dir));
   listen('reader:open', ({ path }) => openPath(path));
   listen('reader:jump', ({ percent }) => {
     const st = lib.jumpPercent(percent);

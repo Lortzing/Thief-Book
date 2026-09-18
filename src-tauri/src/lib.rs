@@ -74,7 +74,6 @@ pub fn run() {
             commands::drag_end,
             commands::show_settings,
             commands::popup_menu,
-            commands::debug_pong,
             commands::quit_app,
         ])
         .on_window_event(|window, event| {
