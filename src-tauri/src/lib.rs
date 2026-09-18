@@ -23,14 +23,20 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // 二次启动:把可能被老板键隐藏的阅读条找回来
-            if let Some(win) = app.get_webview_window(READER_LABEL) {
-                let ui_state = app.state::<Mutex<UiState>>();
-                let mut ui = ui_state.lock().unwrap();
-                if ui.boss_hidden {
-                    ui.boss_hidden = false;
-                    let _ = win.show();
-                    reader::apply_initial_visible(app, &mut ui);
+            let boss_hidden = {
+                let state = app.state::<Mutex<UiState>>();
+                let ui = state.lock().unwrap();
+                ui.boss_hidden
+            };
+            if boss_hidden {
+                {
+                    let state = app.state::<Mutex<UiState>>();
+                    state.lock().unwrap().boss_hidden = false;
                 }
+                if let Some(win) = app.get_webview_window(READER_LABEL) {
+                    let _ = win.show();
+                }
+                reader::apply_initial_visible(app);
             }
         }))
         .plugin(tauri_plugin_dialog::init())

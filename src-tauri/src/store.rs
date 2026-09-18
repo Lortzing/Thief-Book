@@ -142,6 +142,15 @@ impl Doc {
     }
 }
 
+/// 仅向双窗口广播文档。进度落盘等高频路径使用(翻页 500ms 防抖),
+/// 不做几何/托盘/快捷键联动——那些在主线程做窗口与菜单操作,热路径上
+/// 既浪费又会加剧与轮询线程的锁竞争。
+pub fn broadcast(app: &AppHandle) {
+    let raw = with_doc(app, |doc| doc.raw.clone());
+    app.emit_to(crate::READER_LABEL, "doc:changed", &raw).ok();
+    app.emit_to(crate::SETTINGS_LABEL, "doc:changed", &raw).ok();
+}
+
 /// 任意 doc 变更后的联动:窗口几何/托盘菜单/老板键热应用 + 广播。
 /// 必须在**不持有** Doc 锁时调用(内部会重新加锁)。
 pub fn after_change(app: &AppHandle) {

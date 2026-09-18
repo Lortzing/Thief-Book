@@ -6,6 +6,9 @@
 //! 逻辑空间跨显示器统一,是唯一不做单位换算也能自洽的空间。
 //! 仅在 tauri API 边界换算:outer_position÷scale、set_position(Logical)、
 //! Monitor 工作区(物理)÷scale。
+//!
+//! 锁纪律:窗口/事件 API 从非主线程调用会阻塞等待主线程响应,**绝不持
+//! UiState/Doc 锁做这类调用**(与 hover 线程互等即死锁);锁只保护内存状态。
 
 use serde_json::Value;
 use std::sync::Mutex;
@@ -118,43 +121,63 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// 正文显示/隐藏(可见性 + 点击穿透 + 通知渲染端),调用方持有 UiState 锁。
-pub fn show_content(app: &AppHandle, ui: &mut UiState, visible: bool) {
-    ui.visible = visible;
+/// 正文可见性的系统侧(点击穿透 + 通知渲染端)。无锁,可在任意线程调用。
+pub fn apply_visible(app: &AppHandle, visible: bool) {
     if let Some(win) = reader_window(app) {
         let _ = win.set_ignore_cursor_events(!visible);
     }
     app.emit_to(READER_LABEL, "reader:visible", visible).ok();
 }
 
-/// 按 hoverMode 应用初始可见态(二次启动唤起时;调用方持有 UiState 锁)。
-pub fn apply_initial_visible(app: &AppHandle, ui: &mut UiState) {
+/// 按 hoverMode 应用初始可见态(二次启动唤起时)。
+pub fn apply_initial_visible(app: &AppHandle) {
     let s = with_doc(app, |doc| doc.snapshot());
-    show_content(app, ui, !s.hover_mode);
+    let v = !s.hover_mode;
+    {
+        let state = app.state::<Mutex<UiState>>();
+        state.lock().unwrap().visible = v;
+    }
+    apply_visible(app, v);
 }
 
 /// 老板键切换。
 pub fn toggle_boss(app: &AppHandle) {
     let s = with_doc(app, |doc| doc.snapshot());
     let Some(win) = reader_window(app) else { return };
-    let state = app.state::<Mutex<UiState>>();
-    let mut ui = state.lock().unwrap();
 
-    if ui.boss_hidden {
-        ui.boss_hidden = false;
-        let _ = win.show();
-        show_content(app, &mut ui, !s.hover_mode);
-    } else {
-        if ui.dragging {
+    let (was_hidden, was_dragging, keys_active) = {
+        let state = app.state::<Mutex<UiState>>();
+        let mut ui = state.lock().unwrap();
+        if ui.boss_hidden {
+            ui.boss_hidden = false;
+            ui.left_at = None;
+            (true, false, false)
+        } else {
+            let dragging = ui.dragging;
             ui.dragging = false;
-            save_window_rect(app);
-        }
-        ui.boss_hidden = true;
-        ui.left_at = None;
-        let _ = win.hide();
-        if ui.keys_active {
+            ui.boss_hidden = true;
+            ui.left_at = None;
+            let keys = ui.keys_active;
             ui.keys_active = false;
+            (false, dragging, keys)
+        }
+    };
+
+    if was_hidden {
+        let _ = win.show();
+        let v = !s.hover_mode;
+        {
+            let state = app.state::<Mutex<UiState>>();
+            state.lock().unwrap().visible = v;
+        }
+        apply_visible(app, v);
+    } else {
+        let _ = win.hide();
+        if keys_active {
             crate::shortcuts::set_page_keys(app, false);
+        }
+        if was_dragging {
+            save_window_rect(app);
         }
     }
 }
@@ -188,15 +211,23 @@ pub fn apply_settings_changed(app: &AppHandle) {
 
     // hoverMode 关→开 由轮询宽限后自然隐藏;开→关 需要立即显示
     if !s.hover_mode {
-        let state = app.state::<Mutex<UiState>>();
-        let mut ui = state.lock().unwrap();
-        if !ui.visible {
-            show_content(app, &mut ui, true);
+        let need_show = {
+            let state = app.state::<Mutex<UiState>>();
+            let mut ui = state.lock().unwrap();
+            if !ui.visible {
+                ui.visible = true;
+                true
+            } else {
+                false
+            }
+        };
+        if need_show {
+            apply_visible(app, true);
         }
     }
 }
 
-/// 手动拖拽:16ms 跟随光标(逻辑像素),mouseup 结束;30s 兜底。
+/// 手动拖拽开始:16ms 跟随光标(逻辑像素)由 hover 线程执行,mouseup 结束。
 pub fn begin_drag(app: &AppHandle) {
     let Some(win) = reader_window(app) else { return };
     let Some((lx, ly, _, _)) = window_logical_rect(&win) else { return };
@@ -212,29 +243,16 @@ pub fn begin_drag(app: &AppHandle) {
 }
 
 pub fn end_drag(app: &AppHandle) {
-    let state = app.state::<Mutex<UiState>>();
-    let mut ui = state.lock().unwrap();
-    if ui.dragging {
+    let was_dragging = {
+        let state = app.state::<Mutex<UiState>>();
+        let mut ui = state.lock().unwrap();
+        let was = ui.dragging;
         ui.dragging = false;
+        ui.drag_since = None;
+        was
+    };
+    if was_dragging {
         save_window_rect(app);
-    }
-}
-
-/// 拖拽跟随(由 hover 线程高频段调用;调用方持有 UiState 锁)。
-pub fn drag_tick(app: &AppHandle, ui: &mut UiState) {
-    let Some(win) = reader_window(app) else { return };
-    if let Some(since) = ui.drag_since {
-        if since.elapsed().as_secs() > 30 {
-            ui.dragging = false;
-            save_window_rect(app);
-            return;
-        }
-    }
-    if let Some((cx, cy)) = crate::hover::cursor_logical(app) {
-        let _ = win.set_position(LogicalPosition::new(
-            cx - ui.drag_offset.0,
-            cy - ui.drag_offset.1,
-        ));
     }
 }
 

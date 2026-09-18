@@ -226,7 +226,8 @@ pub fn save_progress(
         doc.raw["lastBookPath"] = json!(path);
         doc.persist(&app);
     });
-    crate::store::after_change(&app);
+    // 进度是热路径(翻页防抖 500ms):只广播,不做几何/托盘联动
+    crate::store::broadcast(&app);
 }
 
 #[tauri::command]

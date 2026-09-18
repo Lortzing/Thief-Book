@@ -1,6 +1,11 @@
 //! 悬停轮询线程:16ms 基础节拍;拖拽时全程跟随(≈60fps),
 //! 其余每 3 拍做一次光标命中检测(≈50ms,与 Electron 版一致)。
 //!
+//! 锁纪律(防死锁,2026-09 卡死事故的教训):**本线程绝不持有 UiState/Doc 锁
+//! 调用任何会阻塞等待主线程的 API**(窗口读写、快捷键注册)。窗口操作经由
+//! tao 从非主线程发起时会向主线程投递消息并同步等待——若此时主线程正等
+//! 本线程持有的锁,即互等死锁。因此:锁内只改内存状态,锁外做系统调用。
+//!
 //! 光标读取不使用 tauri 的 cursor_position——tao 在 macOS 的实现把逻辑坐标与
 //! 主屏物理高度混算,Retina(缩放≠1)下返回错误值。改用 device_query:
 //! macOS 下即 CGEventSource 的全局逻辑点(CG 坐标空间,主屏左上为原点)。
@@ -15,6 +20,7 @@ use crate::READER_LABEL;
 
 const DRAG_FOLLOW_MS: u64 = 16;
 const ACTIVATE_MARGIN: f64 = 2.0; // 边界外扩(逻辑像素),更容易命中
+const DRAG_MAX_MS: u64 = 30_000;  // 兜底:mouseup 丢失时不至于永久粘住光标
 
 /// 光标位置(逻辑像素)。
 pub fn cursor_logical(app: &AppHandle) -> Option<(f64, f64)> {
@@ -41,32 +47,71 @@ pub fn spawn(app: AppHandle) {
             std::thread::sleep(Duration::from_millis(DRAG_FOLLOW_MS));
             beat = beat.wrapping_add(1);
 
-            let state = app.state::<Mutex<UiState>>();
-            let mut ui = state.lock().unwrap();
-
-            if ui.dragging {
-                crate::reader::drag_tick(&app, &mut ui);
+            let dragging = {
+                let state = app.state::<Mutex<UiState>>();
+                let ui = state.lock().unwrap();
+                ui.dragging
+            };
+            if dragging {
+                drag_step(&app);
             } else if beat % 3 == 0 {
-                tick(&app, &mut ui);
+                tick(&app);
             }
         }
     });
 }
 
-fn tick(app: &AppHandle, ui: &mut UiState) {
-    if ui.boss_hidden {
-        if ui.keys_active {
-            ui.keys_active = false;
+/// 拖拽跟随:短锁取状态,锁外移动窗口。
+fn drag_step(app: &AppHandle) {
+    let Some(win) = app.get_webview_window(READER_LABEL) else { return };
+    let (offset, since) = {
+        let state = app.state::<Mutex<UiState>>();
+        let ui = state.lock().unwrap();
+        (ui.drag_offset, ui.drag_since)
+    };
+    if let Some(since) = since {
+        if since.elapsed().as_millis() as u64 > DRAG_MAX_MS {
+            crate::reader::end_drag(app);
+            return;
+        }
+    }
+    if let Some((cx, cy)) = cursor_logical(app) {
+        let _ = win.set_position(tauri::LogicalPosition::new(
+            cx - offset.0,
+            cy - offset.1,
+        ));
+    }
+}
+
+fn tick(app: &AppHandle) {
+    // ---- 1. 短锁读运行态 ----
+    let (boss_hidden, keys_active) = {
+        let state = app.state::<Mutex<UiState>>();
+        let ui = state.lock().unwrap();
+        (ui.boss_hidden, ui.keys_active)
+    };
+    if boss_hidden {
+        if keys_active {
+            {
+                let state = app.state::<Mutex<UiState>>();
+                state.lock().unwrap().keys_active = false;
+            }
             crate::shortcuts::set_page_keys(app, false);
         }
         return;
     }
+
+    // ---- 2. 锁外做全部系统调用(窗口查询是阻塞的主线程往返) ----
     let Some(win) = app.get_webview_window(READER_LABEL) else { return };
     let s = with_doc(app, |doc| doc.snapshot());
     let Some((cx, cy)) = cursor_logical(app) else { return };
-    let scale = win.scale_factor().unwrap_or(1.0);
-    let Ok(pos) = win.outer_position() else { return };
-    let Ok(size) = win.outer_size() else { return };
+    let scale = match win.scale_factor() {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    let (Ok(pos), Ok(size)) = (win.outer_position(), win.outer_size()) else {
+        return;
+    };
 
     let m = ACTIVATE_MARGIN;
     let lx = pos.x as f64 / scale;
@@ -77,29 +122,43 @@ fn tick(app: &AppHandle, ui: &mut UiState) {
 
     if std::env::var_os("THIEF_DEBUG").is_some() {
         eprintln!(
-            "[hover] cursor=({cx:.0},{cy:.0}) win=({lx:.0},{ly:.0},{lw:.0},{lh:.0}) inside={inside} visible={}",
-            ui.visible
+            "[hover] cursor=({cx:.0},{cy:.0}) win=({lx:.0},{ly:.0},{lw:.0},{lh:.0}) inside={inside}"
         );
     }
 
-    if s.hover_mode {
-        if inside {
-            ui.left_at = None;
-            if !ui.visible {
-                crate::reader::show_content(app, ui, true);
-            }
-        } else if ui.visible {
-            let left = *ui.left_at.get_or_insert_with(Instant::now);
-            if left.elapsed() >= Duration::from_millis(s.hide_delay_ms) {
+    // ---- 3. 短锁决策,只改内存,收集待执行动作 ----
+    let mut show: Option<bool> = None;
+    let mut keys: Option<bool> = None;
+    {
+        let state = app.state::<Mutex<UiState>>();
+        let mut ui = state.lock().unwrap();
+        if s.hover_mode {
+            if inside {
                 ui.left_at = None;
-                crate::reader::show_content(app, ui, false);
+                if !ui.visible {
+                    ui.visible = true;
+                    show = Some(true);
+                }
+            } else if ui.visible {
+                let left = *ui.left_at.get_or_insert_with(Instant::now);
+                if left.elapsed() >= Duration::from_millis(s.hide_delay_ms) {
+                    ui.visible = false;
+                    ui.left_at = None;
+                    show = Some(false);
+                }
             }
+        }
+        if inside != ui.keys_active {
+            ui.keys_active = inside;
+            keys = Some(inside);
         }
     }
 
-    // 翻页键只在鼠标悬停于阅读条上时生效(两种模式一致)
-    if inside != ui.keys_active {
-        ui.keys_active = inside;
-        crate::shortcuts::set_page_keys(app, inside);
+    // ---- 4. 锁外执行动作 ----
+    if let Some(v) = show {
+        crate::reader::apply_visible(app, v);
+    }
+    if let Some(k) = keys {
+        crate::shortcuts::set_page_keys(app, k);
     }
 }
