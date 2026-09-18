@@ -7,6 +7,10 @@
 
 html, body { height: 100%; overflow: hidden; }
 
+/* 显式声明根元素透明:未显式设置时 WebKit 用默认 underPageBackgroundColor
+   (系统浅底色)垫底,页面透明处会露出这层 */
+html { background-color: transparent; }
+
 body {
   background: transparent;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
