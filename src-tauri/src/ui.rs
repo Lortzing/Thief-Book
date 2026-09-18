@@ -12,6 +12,8 @@ pub struct UiState {
     pub keys_active: bool,
     /// 老板键隐藏中
     pub boss_hidden: bool,
+    /// 托盘点击的浮现截止时刻(内容保持显示,到期恢复原状)
+    pub peek_until: Option<Instant>,
     /// 手动拖拽进行中
     pub dragging: bool,
     /// 拖拽抓取偏移(逻辑像素)

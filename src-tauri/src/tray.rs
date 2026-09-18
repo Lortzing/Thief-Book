@@ -29,7 +29,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 ..
             } = event
             {
-                crate::reader::toggle_boss(tray.app_handle());
+                crate::reader::peek(tray.app_handle());
             }
         })
         .build(app)?;

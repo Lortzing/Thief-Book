@@ -140,6 +140,27 @@ pub fn apply_initial_visible(app: &AppHandle) {
     apply_visible(app, v);
 }
 
+/// 托盘点击:阅读条带正文浮现 3 秒,不管老板键是否隐藏中
+/// (隐藏中的窗口临时亮出,到期若无鼠标接管则重新隐藏)。
+pub fn peek(app: &AppHandle) {
+    let Some(win) = reader_window(app) else { return };
+    let boss_hidden = {
+        let state = app.state::<Mutex<UiState>>();
+        let ui = state.lock().unwrap();
+        ui.boss_hidden
+    };
+    if boss_hidden {
+        let _ = win.show();
+    }
+    {
+        let state = app.state::<Mutex<UiState>>();
+        let mut ui = state.lock().unwrap();
+        ui.peek_until = Some(std::time::Instant::now() + std::time::Duration::from_secs(3));
+        ui.visible = true;
+    }
+    apply_visible(app, true);
+}
+
 /// 老板键切换。
 pub fn toggle_boss(app: &AppHandle) {
     let s = with_doc(app, |doc| doc.snapshot());
@@ -151,12 +172,14 @@ pub fn toggle_boss(app: &AppHandle) {
         if ui.boss_hidden {
             ui.boss_hidden = false;
             ui.left_at = None;
+            ui.peek_until = None;
             (true, false, false)
         } else {
             let dragging = ui.dragging;
             ui.dragging = false;
             ui.boss_hidden = true;
             ui.left_at = None;
+            ui.peek_until = None;
             let keys = ui.keys_active;
             ui.keys_active = false;
             (false, dragging, keys)

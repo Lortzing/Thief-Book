@@ -85,12 +85,14 @@ fn drag_step(app: &AppHandle) {
 
 fn tick(app: &AppHandle) {
     // ---- 1. 短锁读运行态 ----
-    let (boss_hidden, keys_active) = {
+    let (boss_hidden, peek_until, keys_active) = {
         let state = app.state::<Mutex<UiState>>();
         let ui = state.lock().unwrap();
-        (ui.boss_hidden, ui.keys_active)
+        (ui.boss_hidden, ui.peek_until, ui.keys_active)
     };
-    if boss_hidden {
+
+    // 纯老板键隐藏态(未浮现):不做窗口查询,只保证翻页键注销
+    if boss_hidden && peek_until.is_none() {
         if keys_active {
             {
                 let state = app.state::<Mutex<UiState>>();
@@ -122,11 +124,50 @@ fn tick(app: &AppHandle) {
 
     if std::env::var_os("THIEF_DEBUG").is_some() {
         eprintln!(
-            "[hover] cursor=({cx:.0},{cy:.0}) win=({lx:.0},{ly:.0},{lw:.0},{lh:.0}) inside={inside}"
+            "[hover] cursor=({cx:.0},{cy:.0}) win=({lx:.0},{ly:.0},{lw:.0},{lh:.0}) inside={inside} peek={}",
+            peek_until.is_some()
         );
     }
 
-    // ---- 3. 短锁决策,只改内存,收集待执行动作 ----
+    // ---- 3a. 托盘浮现期:内容保持显示;到期恢复原状 ----
+    if let Some(until) = peek_until {
+        if Instant::now() < until {
+            return; // 浮现中:悬停转换与键管理暂停
+        }
+        // 到期:清除浮现态
+        {
+            let state = app.state::<Mutex<UiState>>();
+            state.lock().unwrap().peek_until = None;
+        }
+        if inside {
+            // 鼠标恰在条上:交还常规悬停接管(老板键隐藏态一并解除)
+            if boss_hidden {
+                let state = app.state::<Mutex<UiState>>();
+                state.lock().unwrap().boss_hidden = false;
+            }
+        } else {
+            if s.hover_mode {
+                {
+                    let state = app.state::<Mutex<UiState>>();
+                    state.lock().unwrap().visible = false;
+                }
+                crate::reader::apply_visible(app, false);
+            }
+            if boss_hidden {
+                let _ = win.hide();
+                if keys_active {
+                    {
+                        let state = app.state::<Mutex<UiState>>();
+                        state.lock().unwrap().keys_active = false;
+                    }
+                    crate::shortcuts::set_page_keys(app, false);
+                }
+            }
+        }
+        return;
+    }
+
+    // ---- 3b. 常规悬停决策:短锁改内存,收集待执行动作 ----
     let mut show: Option<bool> = None;
     let mut keys: Option<bool> = None;
     {
