@@ -121,12 +121,19 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// 正文可见性的系统侧(点击穿透 + 通知渲染端)。无锁,可在任意线程调用。
+/// 正文可见性的系统侧(点击穿透 + 通知渲染端)。仅主线程调用。
 pub fn apply_visible(app: &AppHandle, visible: bool) {
     if let Some(win) = reader_window(app) {
         let _ = win.set_ignore_cursor_events(!visible);
     }
     app.emit_to(READER_LABEL, "reader:visible", visible).ok();
+}
+
+/// 轮询线程用的投递版:窗口操作与 wry eval 都涉及主线程限制,
+/// 统一经事件循环异步执行(非主线程调用时为入队,不会内联)。
+pub fn dispatch_apply_visible(app: &AppHandle, visible: bool) {
+    let app2 = app.clone();
+    let _ = app.run_on_main_thread(move || apply_visible(&app2, visible));
 }
 
 /// 按 hoverMode 应用初始可见态(二次启动唤起时)。
@@ -166,42 +173,34 @@ pub fn toggle_boss(app: &AppHandle) {
     let s = with_doc(app, |doc| doc.snapshot());
     let Some(win) = reader_window(app) else { return };
 
-    let (was_hidden, was_dragging, keys_active) = {
+    let (now_hidden, was_dragging) = {
         let state = app.state::<Mutex<UiState>>();
         let mut ui = state.lock().unwrap();
-        if ui.boss_hidden {
-            ui.boss_hidden = false;
-            ui.left_at = None;
-            ui.peek_until = None;
-            (true, false, false)
-        } else {
-            let dragging = ui.dragging;
-            ui.dragging = false;
-            ui.boss_hidden = true;
-            ui.left_at = None;
-            ui.peek_until = None;
-            let keys = ui.keys_active;
-            ui.keys_active = false;
-            (false, dragging, keys)
-        }
+        let was_hidden = ui.boss_hidden;
+        let dragging = ui.dragging;
+        ui.dragging = false;
+        ui.boss_hidden = !was_hidden;
+        ui.left_at = None;
+        ui.peek_until = None;
+        (!was_hidden, dragging)
     };
 
-    if was_hidden {
-        let _ = win.show();
+    if now_hidden {
+        // 注意:此处可能运行在热键回调(插件持锁分发 + run_on_main_thread 主线程
+        // 内联执行)中,严禁调用任何快捷键 API——翻页键的注销由轮询线程的
+        // boss-hidden 分支(异步投递到主线程)在 ~50ms 内完成。
+        let _ = win.hide();
+        if was_dragging {
+            save_window_rect(app);
+        }
+    } else {
         let v = !s.hover_mode;
         {
             let state = app.state::<Mutex<UiState>>();
             state.lock().unwrap().visible = v;
         }
+        let _ = win.show();
         apply_visible(app, v);
-    } else {
-        let _ = win.hide();
-        if keys_active {
-            crate::shortcuts::set_page_keys(app, false);
-        }
-        if was_dragging {
-            save_window_rect(app);
-        }
     }
 }
 

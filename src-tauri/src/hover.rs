@@ -151,7 +151,7 @@ fn tick(app: &AppHandle) {
                     let state = app.state::<Mutex<UiState>>();
                     state.lock().unwrap().visible = false;
                 }
-                crate::reader::apply_visible(app, false);
+                crate::reader::dispatch_apply_visible(app, false);
             }
             if boss_hidden {
                 let _ = win.hide();
@@ -197,7 +197,7 @@ fn tick(app: &AppHandle) {
 
     // ---- 4. 锁外执行动作 ----
     if let Some(v) = show {
-        crate::reader::apply_visible(app, v);
+        crate::reader::dispatch_apply_visible(app, v);
     }
     if let Some(k) = keys {
         crate::shortcuts::dispatch_set_page_keys(app, k);
