@@ -201,10 +201,10 @@ function createTray() {
   tray.setToolTip('Thief Book · 左键隐藏/显示，右键菜单');
   if (process.platform === 'darwin') {
     // mac：左键老板键式切换，右键即时构建菜单（checkbox 状态总是最新）
-    tray.on('click', () => reader.toggleBoss());
+    tray.on('click', () => reader.peek());
     tray.on('right-click', () => tray.popUpContextMenu(buildMenu()));
   } else {
-    tray.on('click', () => reader.toggleBoss());
+    tray.on('click', () => reader.peek());
     rebuildTrayMenu();
   }
 }

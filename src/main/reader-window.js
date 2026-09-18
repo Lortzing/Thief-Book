@@ -26,6 +26,7 @@ const LINE_HEIGHT_FACTOR = 1.55;
 const CHAPTER_H = 22;
 const FOOTER_H = 19;
 const MOVE_SAVE_DELAY = 400;
+const PEEK_MS = 3000; // 托盘点击:阅读条浮现时长
 
 function lineHeight(fontSize) {
   return Math.round(fontSize * LINE_HEIGHT_FACTOR);
@@ -66,6 +67,7 @@ class ReaderWindow {
     this.win = null;
     this.hoverVisible = false; // 正文是否处于显示态
     this.bossHidden = false;
+    this.peekUntil = 0; // 托盘浮现截止时刻
     this.leftAt = 0;
     this.keysWanted = false;  // 最近一次 tick 的悬停结果
     this.keysActive = false;
@@ -150,6 +152,26 @@ class ReaderWindow {
 
   _tick() {
     if (!this.win) return;
+    // 托盘浮现期:内容保持显示;到期鼠标在条上则交还悬停接管,否则恢复原状
+    if (this.peekUntil) {
+      if (Date.now() < this.peekUntil) return; // 浮现中:暂停悬停转换与翻页键
+      this.peekUntil = 0;
+      const b = this.win.getBounds();
+      const p = screen.getCursorScreenPoint();
+      const inside =
+        p.x >= b.x - ACTIVATE_MARGIN && p.x <= b.x + b.width + ACTIVATE_MARGIN &&
+        p.y >= b.y - ACTIVATE_MARGIN && p.y <= b.y + b.height + ACTIVATE_MARGIN;
+      if (inside) {
+        if (this.bossHidden) this.bossHidden = false; // 交还悬停接管
+      } else {
+        if (this.store.settings.hoverMode) this._hideContent();
+        if (this.bossHidden) {
+          this.win.hide();
+          this._setKeysActive(false);
+        }
+      }
+      return;
+    }
     if (this.bossHidden) {
       this._setKeysActive(false);
       return;
@@ -195,10 +217,19 @@ class ReaderWindow {
     if (this.onHoverChange) this.onHoverChange(active);
   }
 
-  // ---------- 老板键 ----------
+  // ---------- 托盘浮现 / 老板键 ----------
+
+  /** 托盘左键:阅读条带正文浮现 3 秒,不管老板键是否隐藏中。 */
+  peek() {
+    if (!this.win) return;
+    if (this.bossHidden) this.win.show(); // 隐藏中的窗口临时亮出,bossHidden 状态保留
+    this.peekUntil = Date.now() + PEEK_MS;
+    this._showContent();
+  }
 
   toggleBoss() {
     if (!this.win) return;
+    this.peekUntil = 0; // 手动切换取消浮现
     if (this.bossHidden) {
       this.bossHidden = false;
       this.win.show();

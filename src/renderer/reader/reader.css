@@ -32,11 +32,9 @@ body {
   transition: background 0.18s ease;
 }
 
-/* 可见态才有底色与毛玻璃——隐身态必须完全透明，不能残留模糊块 */
+/* 可见态才有底色(无毛玻璃——用户偏好真透明) */
 #bar.shown {
   background: var(--bg);
-  backdrop-filter: blur(18px) saturate(1.35);
-  -webkit-backdrop-filter: blur(18px) saturate(1.35);
 }
 
 #grip {
