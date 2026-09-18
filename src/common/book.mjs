@@ -356,7 +356,7 @@ class Paginator {
   }
 }
 
-module.exports = {
+export {
   decodeBuffer,
   normalizeText,
   detectChapters,

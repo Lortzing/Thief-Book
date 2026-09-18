@@ -1,57 +1,17 @@
 {
   "name": "thief-book",
   "productName": "Thief Book",
-  "version": "4.0.1",
+  "version": "5.0.0",
   "description": "极简摸鱼阅读器：老板键、悬停显隐、hjkl 翻页、自动记忆阅读进度",
-  "main": "src/main/index.js",
   "author": "tal",
   "license": "MIT",
   "scripts": {
-    "start": "electron .",
-    "test": "node tests/run.js",
-    "dist:mac": "electron-builder --mac dmg zip --arm64 --x64 --publish never",
-    "dist:mac:dir": "electron-builder --mac dir --arm64 --publish never"
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri",
+    "test": "node tests/run.js"
   },
   "devDependencies": {
-    "electron": "44.3.0",
-    "electron-builder": "26.15.3"
-  },
-  "build": {
-    "appId": "c.team.thief-book",
-    "productName": "Thief Book",
-    "asar": true,
-    "files": [
-      "src/**/*",
-      "assets/**/*",
-      "LICENSE",
-      "README.md"
-    ],
-    "directories": {
-      "output": "out"
-    },
-    "mac": {
-      "category": "public.app-category.utilities",
-      "icon": "assets/icons/icon.icns",
-      "target": [
-        { "target": "dmg", "arch": ["arm64", "x64"] },
-        { "target": "zip", "arch": ["arm64", "x64"] }
-      ],
-      "identity": null
-    },
-    "win": {
-      "icon": "assets/icons/icon.ico",
-      "target": [
-        { "target": "nsis", "arch": ["x64"] }
-      ]
-    },
-    "linux": {
-      "category": "Utility",
-      "icon": "assets/icons/icon-512.png",
-      "maintainer": "Lortzing <Lortzing@users.noreply.github.com>",
-      "target": [
-        { "target": "AppImage", "arch": ["x64"] },
-        { "target": "deb", "arch": ["x64"] }
-      ]
-    }
+    "@tauri-apps/cli": "^2"
   }
 }

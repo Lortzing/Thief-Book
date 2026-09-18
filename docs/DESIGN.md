@@ -1,121 +1,150 @@
-# Thief Book 4.0 — 设计文档
+# Thief Book — 设计文档
 
-本项目是 [marcoxiong/Thief-Book](https://github.com/marcoxiong/Thief-Book)（cteamx/Thief 的 fork）的完全重写。
-原版：Electron 2 + electron-vue + Vue2 + element-ui + lowdb + axios 等 10 个运行时依赖，830 行单文件主进程。
-重写版：**零运行时依赖**、无打包器（源码即产物）、现代 Electron + contextIsolation 沙箱。
+本项目是 [marcoxiong/Thief-Book](https://github.com/marcoxiong/Thief-Book)(cteamx/Thief 的 fork)的完全重写。
+- 4.x:Electron,零运行时依赖——但内嵌整个 Chromium,产物 121MB。
+- **5.x:Tauri 2**,系统 WebView + Rust 壳,产物约 10MB;界面/核心逻辑仍是零依赖的纯 HTML/CSS/JS(ES Module,无打包器)。
+
+本文件描述 5.x 现行架构。4.x 的历史规格见 git 历史(docs/DESIGN.md@v4.0.1)。
 
 ## 范围
 
-只保留：TXT 阅读、按书记忆进度、老板键、悬停显隐、hjkl/滚轮/点击翻页、章节跳转、最近书单。
-删除：股票/网页/视频/PDF/TouchBar 模式、自动翻页、搜索页、任务栏标题模式。
+只保留:TXT 阅读、按书记忆进度、老板键、悬停显隐、hjkl/滚轮/点击翻页、章节跳转、最近书单。
+删除:股票/网页/视频/PDF/TouchBar 模式、自动翻页、搜索页、任务栏标题模式。
 
 ## 目录
 
 ```
-src/common/    纯逻辑，不依赖 electron，可单测
-  book.js        解码(UTF-8/UTF-16/GB18030/Big5 自动，简繁打分消歧) / 章节识别 / 分页
-  store.js       设置 + 阅读进度持久化 (userData/reader-store.json, 防抖原子写)
-src/main/      主进程
-  index.js       生命周期、托盘、右键菜单、IPC 接线
-  library.js     当前书籍会话：打开/翻页/章节/进度保存
-  reader-window.js  阅读条窗口：hover 轮询显隐、尺寸位置、老板键隐藏
-  shortcuts.js   全局快捷键：老板键常驻 + 翻页键仅 hover 时注册
-  settings-window.js  设置窗口（懒创建）
-src/preload/   contextBridge，sandbox: true
-src/renderer/  纯 HTML/CSS/JS，无框架无构建
-  reader/        阅读条
-  settings/      设置窗口
-tests/         零依赖单测（node tests/run.js，支持关键字过滤）
-  run.js         运行器：收集 *.test.js 的全局 test()
-  book.test.js   编码 / 归一化 / 章节识别 / 折行加权 / 分页不变量
-  store.test.js  设置校验 / 进度 / 持久化往返 / 损坏恢复 / 迁移
-  library.test.js 书籍会话集成（打开/翻页/章节/跳转/落盘，不依赖 Electron）
+src/common/    纯 JS 逻辑(ESM,浏览器与 node 单测共用)
+  book.mjs        解码(UTF-8/UTF-16/GB18030/Big5 自动,简繁打分消歧) / 章节识别 / 分页
+  session.mjs     书籍会话:打开/翻页/章节/进度(IO 经注入的 backend)
+  settings.mjs    设置校验/钳制(纯函数,设置窗口与单测共用)
+  tauri.mjs       IPC 适配层:invoke/listen 封装
+src/renderer/  纯 HTML/CSS/JS,无框架无构建
+  reader/         阅读条(持书籍会话,事件驱动)
+  settings/       设置窗口
+src-tauri/     Rust 壳
+  src/lib.rs       生命周期、单实例、ExitRequested 不退出
+  src/reader.rs    阅读条窗口:几何公式、老板键、设置联动、手动拖拽
+  src/hover.rs     16ms 轮询线程:悬停显隐(≈50ms) + 拖拽跟随(≈60fps)
+  src/shortcuts.rs 老板键常驻 + 翻页键仅悬停期注册
+  src/tray.rs      托盘左键切换 + 右键菜单(随 store 重建)
+  src/store.rs     reader-store.json:默认值/损坏备份重建/Electron 目录迁移
+  src/commands.rs  IPC 命令
+tests/         零依赖单测(node tests/run.js)
 ```
 
-## 编码识别
+## 职责划分
 
-BOM(UTF-8/UTF-16) 优先，其后严格 UTF-8。GB18030 与 Big5 的字节流几乎总能**互相**“合法”
-解码成乱码，try/catch 无法区分——两者都严格解码后按**常用汉字命中率**打分择优
-（真实文本 25%+，跨编码乱码约 1%），平手偏向 GB18030。全部失败回退宽松 UTF-8。
+Rust 只做壳:窗口/托盘/全局快捷键/光标轮询/文件 IO。所有领域逻辑(编码、分页、设置校验)
+在 webview 的 JS 中——与 4.x 相同的代码,同样的单测覆盖。
+
+## 坐标体系(重要)
+
+**一律逻辑像素**(与 CSS px 同语义)。macOS 的 CG 全局坐标(warp、CGEventSource、
+`monitor_from_point`)本就是逻辑点,逻辑空间跨显示器统一。tao 框架的
+`cursor_position()` 在 macOS 把逻辑坐标与主屏物理高度混算,Retina 下返回错误值,
+故光标读取改用 `device_query`(macOS 即 CGEventSource 逻辑点;Windows/Linux 为物理像素,
+按所在显示器缩放换算)。仅在 tauri API 边界换算:`outer_position÷scale`、
+`set_position(Logical)`、Monitor 工作区(物理)÷scale。
 
 ## 行为规格
 
 ### 阅读条窗口
-- 无边框、透明、置顶(`floating`)、`focusable: false`（永不抢焦点）、跳过任务栏、mac 隐藏 Dock 图标。
-- 默认位置：主屏工作区底部居中、留 6px 边距；可拖拽（左侧把手或章节标题行），位置记忆。
-- 拖拽为**手动实现**：`focusable: false` 窗口上 `-webkit-app-region` 不可靠——把手 mousedown 经 IPC
-  通知主进程后以 16ms 轮询跟随光标（`setPosition`），mouseup 结束并落盘；30s 超时兜底防粘滞。
-- 尺寸由设置推导：`width` 可配（默认 620），高度 = 行数×行高 + 章节行 + 进度行 + 内边距。
+- 无边框、透明(`macos-private-api`)、置顶、`focused: false`(永不抢焦点)、跳过任务栏、mac 隐藏 Dock 图标(Accessory)。
+- 默认位置:主屏工作区底部居中、留 6px 边距;把手/章节行手动拖拽(16ms 跟随,mouseup 结束,30s 兜底),位置记忆(逻辑像素)。
+- 尺寸由设置推导:`width` 可配(默认 620),高度 = 行数×行高(1.55×字号)+ 章节行 22 + 进度行 19 + 内边距 18。
+- 阅读条永不真正关闭(退出走托盘);所有窗口关闭也不退出(app.exit 才退出)。
 
-### 悬停显隐（hover 模式，默认开）
-- 主进程 50ms 轮询 `screen.getCursorScreenPoint()`，判断是否在窗口边界（外扩 2px）内。
-- 移入：`setIgnoreMouseEvents(false)`，通知渲染端淡入正文（180ms），注册 hjkl 翻页全局键。
-- 移出：宽限 `hideDelayMs`（默认 300ms）后，正文淡出、`setIgnoreMouseEvents(true, {forward:true})`、注销翻页键。
-- 常显模式（hover 模式关）：正文常驻显示，仅翻页键仍要求鼠标在窗口上。
-- 关键点：窗口隐藏态是**完全透明 + 点击穿透**，但窗口本体保持 show，这样轮询检测和瞬时显示无需 show/hide 抖动；`backdrop-filter` 仅在可见态启用，避免隐藏时留下一块模糊。
+### 悬停显隐(hover 模式,默认开)
+- Rust 线程 16ms 节拍:拖拽时全程跟随;其余每 3 拍(≈50ms)做光标命中检测(边界外扩 2px)。
+- 移入:`set_ignore_cursor_events(false)`,事件通知渲染端淡入,注册 hjkl 翻页全局键。
+- 移出:宽限 `hideDelayMs`(默认 300ms)后,`set_ignore_cursor_events(true)`、淡出、注销翻页键。
+- 隐藏态 = 内容透明 + 点击穿透,窗口本体保持存在,轮询检测无需 show/hide 抖动。
 
-### 老板键（默认 `CommandOrControl+Shift+B`，可改）
-- 常驻全局快捷键 + 托盘左键 + 右键菜单项，三处触发同一逻辑。
-- 按下：`win.hide()` 瞬间隐藏（hover 轮询挂起）；再按：`win.show()` 恢复原位原进度。
+### 老板键(默认 `CmdOrCtrl+Shift+B`,可改)
+- 常驻全局快捷键 + 托盘左键 + 菜单项,三处触发同一逻辑:整窗 hide/show,恢复时按 hoverMode 重置可见态。
 
 ### 翻页
-- 默认键位 j=下一页 k=上一页 l=下一章 h=上一章，均可改（任意 Electron accelerator，支持单键）。
-- 仅在鼠标悬停于阅读条时注册生效，不干扰平时打字。
-- 滚轮：向下=下一页，向上=上一页，180ms 防抖（`wheelPaging` 可关）。左键单击=下一页。
-- 最后一页末尾追加"（完）"。
+- j/k 翻页、l/h 跳章(可改,单键/组合键);仅悬停期注册。
+- 滚轮 180ms 防抖(`wheelPaging` 可关)、左键单击下一页;章节行是拖拽把手,点击不翻页。
+- 最后一页末尾追加"(完)"。
 
 ### 进度与书单
-- 进度按**字符位置 charIndex** 记忆（原版按页码，改字号即失效——本版修复）。
-- 每本书：`{path, name, charIndex, percent, updatedAt, addedAt}`，翻页防抖 500ms 落盘，退出前强制落盘。
-- 启动时恢复上次书籍与位置；最近书单（按 updatedAt 排序）在设置窗口与右键菜单可达。
+- 进度按字符位置 charIndex 记忆,翻页防抖 500ms 由 JS 触发 `save_progress` 命令落盘;
+  webview 隐藏/卸载时立即 flush。启动按 `resumeOnStart` 恢复上次书籍。
+- 书单按 updatedAt 倒序,设置窗口与托盘菜单可达。
 
-## 分页算法（book.js）
+## 编码识别
 
-- 打开时归一化文本（\r\n→\n、去 BOM、**去文末空白**——否则末尾空行会排出空白尾页、丢失“（完）”标记），缓存全文与章节表。
-- 章节从**章节起点**贪心排版，页界确定性：同一章内 `pageAt(charIndex)` 永远返回包含该字符的页，
-  上一页/下一页 = 从章节起点重走一遍（章节数十 KB，亚毫秒级）。
-- 每行宽度按全半角加权：全角=1 单位，半角=0.5 单位；`charsPerLine = floor(内容宽 / 字号)`。
-- 页从起点起跳过前导空行；不足一章的尾部按剩余内容排。
-- 章节识别：`第X[章节回卷集部篇]` / `序章|楔子|番外…` / `Chapter N` 行首匹配；开头连续紧邻(<80 字符)
-  的标题行视为目录剔除——切点标题可能是正文第一章（目录紧贴正文的常见排版），只删到切点为止。
+BOM(UTF-8/UTF-16) 优先,其后严格 UTF-8。GB18030 与 Big5 的字节流几乎总能**互相**"合法"
+解码成乱码,try/catch 无法区分——两者都严格解码后按**常用汉字命中率**打分择优
+(真实文本 25%+,跨编码乱码约 1%),平手偏向 GB18030。全部失败回退宽松 UTF-8。
 
-## IPC 契约（invoke/handle + 推送）
+## 分页算法(book.mjs)
 
-渲染端 → 主（`ipcRenderer.invoke`，preload 白名单封装）：
+- 归一化(\r\n→\n、去 BOM、去文末空白——否则产生空白尾页、丢失"(完)"),缓存全文与章节表。
+- 章节从**章节起点**贪心排版,页界确定性:`pageAt(charIndex)` 永远返回包含该字符的页。
+- 每行宽度按全半角加权:全角=1 单位,半角=0.5 单位;`unitsPerLine = floor(内容宽 / 字号)`,
+  内容宽 = width − 把手 22 − 内边距 20(与 reader.css 严格一致)。
+- 章节识别:`第X[章节回卷集部篇]` / `序章|楔子|番外…` / `Chapter N` 行首匹配;开头连续紧邻
+  (<80 字符)的标题行视为目录剔除,只删到切点(目录紧贴正文第一章时切点即第一章标题)。
 
-| channel | payload | 返回 |
+## IPC 契约
+
+渲染端 → 主(`invoke`,命令名 + JSON 参数):
+
+| 命令 | 参数 | 返回 |
 |---|---|---|
-| `reader:ready` | — | `{page, appearance, visible, hasBook}` |
-| `reader:page` | `{dir: 1\|-1}` | `PageState` |
-| `reader:chapter` | `{dir: 1\|-1}` | `PageState` |
-| `reader:open` | — | `{opened, message?}` 打开文件对话框 |
-| `reader:menu` | `{x, y}`（send） | — 右键菜单 |
-| `reader:dragStart` / `reader:dragEnd` | —（send） | — 手动拖拽起止 |
-| `settings:get` | — | `{settings, books, currentBook, bossConflict}` |
-| `settings:set` | `{key, value}` | `{ok}` |
-| `settings:setKeys` | `{next, prev, nextCh, prevCh, boss}` | `{ok, errors: {[k]: string}}` |
-| `settings:openBook` | `{path}` | `{opened, message?}` |
-| `settings:forgetBook` | `{path}` | `{ok}` |
-| `settings:jump` | `{percent: 0-100}` | `{ok}` |
-| `settings:pickBook` | — | `{path?}` 文件选择对话框 |
-| `settings:probeKey` | `{accel}` | `{ok, reason?}` 探测快捷键可用性 |
+| `get_doc` | — | 完整 store 文档 |
+| `reader_ready` | — | `{visible, hoverMode}` |
+| `set_setting` | `{key, value}` | `null`(键白名单外则 Err) |
+| `set_keys` | `{boss,next,prev,nextCh,prevCh}` | `{ok, errors, bossConflict}` |
+| `open_book` | `{path}` | `{opened, message?}`(校验后发 `reader:open`) |
+| `read_book` | `{path}` | 原始字节(>64MB 报错) |
+| `pick_book` | — | 文件路径或 null |
+| `remove_book` | `{path}` | `{ok}` |
+| `save_progress` | `{path,name,charIndex,percent}` | — |
+| `jump` | `{percent}` | `{ok}`(转发 `reader:jump`) |
+| `probe_key` | `{accel}` | `{ok, reason?}` |
+| `drag_begin` / `drag_end` | — | — 手动拖拽起止 |
+| `show_settings` | — | — 打开/唤起/显示设置窗口 |
+| `popup_menu` | — | — 在光标处弹出主菜单 |
+| `quit_app` | — | — |
 
-主 → 渲染端（`webContents.send`，载荷即 preload 回调收到的值）：
-- `push:page` `PageState`、`push:visible` `bool`、`push:appearance` `Appearance`、`push:books` `BookRow[]`
+主 → 渲染端(`emit_to`,载荷即回调收到的值):
+- `reader:visible` `bool`、`reader:page` `"next"|"prev"|"nextCh"|"prevCh"`、
+  `reader:open` `{path}`、`reader:jump` `{percent}`、`doc:changed` 完整文档
 
-```
-PageState  = { lines: string[], chapterTitle: string|null, percent: number,
-               bookName: string, hasPrev: bool, hasNext: bool, isEnd: bool }
-Appearance = { fontSize, lines, width, theme, bgColor, fgColor,
-               showChapter, showProgress, hoverMode, wheelPaging }
-BookRow    = { path, name, percent, updatedAt }
-```
+任意文档变更后 Rust 统一联动:阅读条几何重排(底边中点锚定)、托盘菜单重建、老板键热应用、双窗口广播。
 
 ## 安全
 
-`contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`、IPC 入参校验 + sender 校验、
-不加载任何远程内容。
+- `contextIsolation` 由 Tauri 默认提供;CSP `default-src 'self' ipc: http://ipc.localhost`。
+- IPC 命令入参校验(键白名单、路径可读性、64MB 上限);不加载任何远程内容。
+- `withGlobalTauri` 暴露的核心 API 仅 invoke/listen,窗口控制全部在 Rust 侧。
+
+## 存储格式(reader-store.json,v3)
+
+```json
+{ "version": 3,
+  "settings": { bossKey, nextPageKey, prevPageKey, nextChapterKey, prevChapterKey,
+                hoverMode, wheelPaging, hideDelayMs, fontSize, lines, width,
+                theme, bgColor, fgColor, showChapter, showProgress, resumeOnStart },
+  "books": { "<路径>": { path, name, charIndex, percent, updatedAt, addedAt } },
+  "lastBookPath": null,
+  "windowRect": { x, y, width, height } }   // 逻辑像素
+```
+
+默认值在 Rust(`store.rs::DEFAULTS_JSON`)与 JS(`settings.mjs::DEFAULT_SETTINGS`)两处镜像,需同步修改。
+Electron 4.x 旧目录(`~/Library/Application Support/Thief Book`)首次运行自动迁移(丢 windowRect)。
+
+## 调试
+
+- `THIEF_DEBUG=1` 启动:主进程 stderr 输出悬停轮询轨迹与快捷键注册结果。
+- macOS 悬停/拖拽自动验证:CDP 不可用(WKWebView),用 `osascript` JXA
+  `CGWarpMouseCursorPosition` 移动真实光标 + 观察 stderr 轨迹;模拟键盘被辅助功能权限拦截,翻页需人工验证。
 
 ## 打包
 
-`npm run dist:mac` → electron-builder 出 macOS arm64 无签名 zip（沙盒是 Linux，只能出 zip/dir，dmg 需 macOS）。
+`npx tauri build`(本机平台)/ `npm run build`。CI(推 v* 标签)构建:
+macOS dmg(arm64+x64)、Windows nsis、Linux deb+AppImage,自动发布 Release,无签名。

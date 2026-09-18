@@ -3,3 +3,5 @@ out/
 *.log
 .DS_Store
 .claude/
+src-tauri/target/
+src-tauri/gen/

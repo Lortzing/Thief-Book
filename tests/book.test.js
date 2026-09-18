@@ -10,7 +10,7 @@ const {
   matchChapterLine,
   isWideCodePoint,
   Paginator,
-} = require('../src/common/book');
+} = require('../src/common/book.mjs');
 
 // iconv 生成的真实编码字节（测试零依赖，不再依赖外部工具）
 const GBK_TEXT = '第一章 起点\n这是简体中文正文，测试编码自动识别。';

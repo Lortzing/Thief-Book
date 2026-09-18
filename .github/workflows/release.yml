@@ -1,7 +1,7 @@
 name: CI & Release
 
 # master 推送:只跑单测;推 v* 标签(或手动触发):单测 → 三平台构建 → 草稿 Release → 汇总发布。
-# 零运行时依赖、无原生模块,mac 上可交叉构建 x64,无签名(下载后需自行放行)。
+# Tauri 产物体积极小(系统 WebView),无签名(下载后需自行放行)。
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '发布标签(如 v4.0.1,需以 v 开头)'
+        description: '发布标签(如 v5.0.0,需以 v 开头)'
         required: true
 
 permissions:
@@ -55,14 +55,17 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            targets: --mac dmg zip
-            arches: --arm64 --x64
+            args: --target aarch64-apple-darwin
+            add_target: ''
+          - os: macos-latest
+            args: --target x86_64-apple-darwin
+            add_target: x86_64-apple-darwin
           - os: windows-latest
-            targets: --win nsis
-            arches: --x64
+            args: ''
+            add_target: ''
           - os: ubuntu-latest
-            targets: --linux AppImage deb
-            arches: --x64
+            args: ''
+            add_target: ''
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -70,9 +73,22 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: 添加交叉编译目标
+        if: matrix.add_target != ''
+        run: rustup target add ${{ matrix.add_target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: 安装 Linux 构建依赖
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
       - run: npm ci
       - name: 构建
-        run: npx electron-builder ${{ matrix.targets }} ${{ matrix.arches }} --publish never
+        shell: bash
+        run: npx tauri build ${{ matrix.args }}
       - name: 上传产物到 Release
         shell: bash
         run: |
@@ -82,9 +98,8 @@ jobs:
             echo "上传: $f"
             gh release upload "$TAG" "$f" --clobber
             found=1
-          done < <(find out -type f \
-            \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.deb' \) \
-            ! -path '*unpacked*' -print0)
+          done < <(find src-tauri/target -type f -path '*/bundle/*' \
+            \( -name '*.dmg' -o -name '*.exe' -o -name '*.deb' -o -name '*.AppImage' \) -print0)
           test "$found" = 1 || { echo "没有找到构建产物"; exit 1; }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
