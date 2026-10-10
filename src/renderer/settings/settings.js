@@ -141,37 +141,23 @@
     keyEls[field].err.textContent = r && !r.ok ? `冲突：${r.reason || '不可用'}` : '';
   }
 
-  function keysStatus(msg, isErr) {
-    const s = el('keys-status');
-    s.textContent = msg || '';
-    s.classList.toggle('err', !!isErr);
-  }
-
-  el('save-keys').addEventListener('click', async () => {
-    cancelRecording();
-    keysStatus('');
+  /** 保存键位(供总保存调用):返回 {ok, errors, bossConflict}。 */
+  async function saveKeys() {
     for (const k of Object.values(keyEls)) k.err.textContent = '';
     let r = null;
     try {
       r = await api.setKeys({ ...keys });
     } catch {
-      /* 落到下方失败分支 */
+      /* 落到失败分支 */
     }
-    if (r && r.ok) {
-      keysStatus(r.bossConflict ? '已保存，但老板键仍被占用' : '已保存');
-      return;
-    }
+    if (r && r.ok) return { ok: true, bossConflict: !!r.bossConflict };
     const errors = (r && r.errors) || {};
-    let shown = 0;
     for (const row of KEY_ROWS) {
       const msg = errors[row.field];
-      if (msg) {
-        keyEls[row.field].err.textContent = msg;
-        shown += 1;
-      }
+      if (msg) keyEls[row.field].err.textContent = msg;
     }
-    if (!shown) keysStatus('保存失败', true);
-  });
+    return { ok: false, errors };
+  }
 
   // ---------------------------------------------------------------------------
   // 外观 / 行为
@@ -264,6 +250,8 @@
   el('save-all').addEventListener('click', async () => {
     cancelRecording();
     saveStatus('保存中…');
+    // 键位与其他设置一并保存;键位需先校验(冲突时逐行提示,其余设置照常生效)
+    const keysResult = await saveKeys();
     const sets = [];
     for (const [id, key] of [
       ['font-size', 'fontSize'],
@@ -293,8 +281,11 @@
     sets.push(api.set('fgColor', settings.fgColor));
     try {
       const rs = await Promise.all(sets);
-      if (rs.every((r) => !r || r.ok)) saveStatus('已保存');
-      else saveStatus('部分设置未生效', true);
+      const settingsOk = rs.every((r) => !r || r.ok);
+      if (!settingsOk) saveStatus('部分设置未生效', true);
+      else if (!keysResult.ok) saveStatus('键位有冲突,未保存', true);
+      else if (keysResult.bossConflict) saveStatus('已保存,但老板键仍被占用', true);
+      else saveStatus('已保存');
     } catch {
       saveStatus('保存失败', true);
     }
