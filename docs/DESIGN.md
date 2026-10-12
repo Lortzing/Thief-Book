@@ -66,7 +66,9 @@ BOM(UTF-8/UTF-16) 优先，其后严格 UTF-8。GB18030 与 Big5 的字节流几
 
 ### 进度与书单
 - 进度按**字符位置 charIndex** 记忆（原版按页码，改字号即失效——本版修复）。
-- 每本书：`{path, name, charIndex, percent, updatedAt, addedAt}`，翻页防抖 500ms 落盘，退出前强制落盘。
+- 每本书：`{path, name, charIndex, percent, updatedAt, addedAt}`。**打开/导入立即落盘**
+  （紧随其后的 `pushBooks` 要立刻读到新书，否则设置页书单刷新时看不到它），
+  翻页防抖 500ms 落盘，退出前强制落盘。
 - 启动时恢复上次书籍与位置；最近书单（按 updatedAt 排序）在设置窗口与右键菜单可达。
 
 ## 分页算法（book.js）
@@ -89,7 +91,7 @@ BOM(UTF-8/UTF-16) 优先，其后严格 UTF-8。GB18030 与 Big5 的字节流几
 | `reader:page` | `{dir: 1\|-1}` | `PageState` |
 | `reader:chapter` | `{dir: 1\|-1}` | `PageState` |
 | `reader:open` | — | `{opened, message?}` 打开文件对话框 |
-| `reader:menu` | `{x, y}`（send） | — 右键菜单 |
+| `reader:menu` | —（send） | — 右键菜单(由主进程定位到当前光标) |
 | `reader:dragStart` / `reader:dragEnd` | —（send） | — 手动拖拽起止 |
 | `settings:get` | — | `{settings, books, currentBook, bossConflict}` |
 | `settings:set` | `{key, value}` | `{ok}` |

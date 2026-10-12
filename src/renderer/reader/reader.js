@@ -94,7 +94,7 @@
       dragging = false;
       api.endDrag();
     }
-    api.popupMenu(Math.round(e.screenX), Math.round(e.screenY));
+    api.popupMenu(); // 菜单由主进程定位到当前光标（右键点）
   });
 
   document.addEventListener(

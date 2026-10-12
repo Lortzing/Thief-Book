@@ -74,7 +74,9 @@ class Library {
     const page = paginator.pageAt(startIdx);
     this.book.charIndex = page.start;
     this.book.page = page;
-    this._scheduleSave();
+    // 立即落盘而非防抖：导入是明确的用户动作，且紧随其后的 pushBooks 要立刻
+    // 读到这本书——防抖 500ms 会让设置页书单刷新时看不到刚导入的书
+    this.flushSave();
     return { ok: true, page: this.pageState() };
   }
 

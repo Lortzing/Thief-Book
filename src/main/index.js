@@ -257,12 +257,11 @@ function registerIpc() {
     return openBookDialog();
   });
 
-  ipcMain.on('reader:menu', (e, p) => {
-    if (!isReader(e) || !p) return;
-    const x = Number(p.x);
-    const y = Number(p.y);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-    buildMenu().popup({ window: reader.win, x, y });
+  ipcMain.on('reader:menu', (e) => {
+    if (!isReader(e)) return;
+    // 不传 x/y：Menu.popup 的坐标是**相对窗口**的，此前误传屏幕坐标导致菜单
+    // 被推向右下方；省略即由 Electron 定位到当前光标处（右键点即菜单点）
+    buildMenu().popup({ window: reader.win });
   });
 
   ipcMain.on('reader:dragStart', (e) => {

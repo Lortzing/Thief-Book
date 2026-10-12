@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('reader', {
   nextChapter: () => ipcRenderer.invoke('reader:chapter', { dir: 1 }),
   prevChapter: () => ipcRenderer.invoke('reader:chapter', { dir: -1 }),
   openBook: () => ipcRenderer.invoke('reader:open'),
-  popupMenu: (x, y) => ipcRenderer.send('reader:menu', { x, y }),
+  popupMenu: () => ipcRenderer.send('reader:menu'),
   beginDrag: () => ipcRenderer.send('reader:dragStart'),
   endDrag: () => ipcRenderer.send('reader:dragEnd'),
   onPage: (cb) => ipcRenderer.on('push:page', (_e, page) => cb(page)),

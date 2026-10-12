@@ -7,7 +7,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { Library } = require('../src/main/library');
-const { DEFAULT_SETTINGS } = require('../src/common/store');
+const { createStore, DEFAULT_SETTINGS } = require('../src/common/store');
 
 const GBK_HEX = 'b5dad2bbd5c220c6f0b5e30ad5e2cac7bcf2cce5d6d0cec4d5fdcec4a3acb2e2cad4b1e0c2ebd7d4b6afcab6b1f0a1a3';
 const BIG5_HEX = 'b36fac4fc163c5e9a4a4a4e5b4fab8d5a143c163c5e9a470bba1aabaa4baae65a662b36fb8cca141a54cadccbba1b94caabab8dca143';
@@ -198,15 +198,18 @@ test('reapplyMetrics: 改字号后仍对齐原阅读位置', () => {
   );
 });
 
-test('flushSave: 进度防抖落盘', () => {
-  const store = fakeStore();
+test('flushSave: 打开即落盘(书单要立刻可见),翻页防抖', () => {  const store = fakeStore();
   const lib = new Library(store);
   const file = writeTxt('落盘.txt', sampleText());
   lib.open(file);
+  // open 立即落盘:设置页书单刷新要立刻读到刚导入的书
+  assert.strictEqual(store._saved.length, 1, '打开应立即落盘');
+  assert.strictEqual(store._books[file].name, '落盘');
+
   lib.turn(1);
-  assert.strictEqual(store._saved.length, 0, '防抖期内不应立即写');
+  assert.strictEqual(store._saved.length, 1, '翻页在防抖期内不应立即写');
   lib.flushSave();
-  assert.strictEqual(store._saved.length, 1);
+  assert.strictEqual(store._saved.length, 2);
   const b = store._books[file];
   assert.strictEqual(b.name, '落盘');
   assert.ok(b.charIndex > 0 && b.percent > 0);
@@ -232,4 +235,23 @@ test('无书状态: 所有操作安全返回', () => {
   assert.strictEqual(lib.chapter(1), null);
   assert.strictEqual(lib.jumpPercent(50), null);
   lib.flushSave(); // 不应抛异常
+});
+
+test('导入后书单立即可见(回归:曾因防抖落盘导致设置页不刷新)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'thief-book-import-'));
+  const store = createStore(dir); // 真实 store,验证 listBooks 这一用户可见契约
+  const lib = new Library(store);
+  const file = writeTxt('新书.txt', sampleText(2, 5));
+
+  assert.deepStrictEqual(store.listBooks(), [], '导入前书单为空');
+
+  const r = lib.open(file);
+  assert.strictEqual(r.ok, true);
+
+  // open 之后立刻(不等防抖)就要能读到——设置页正是这一刻推送书单
+  const books = store.listBooks();
+  assert.strictEqual(books.length, 1, '导入后书单应立即包含新书');
+  assert.strictEqual(books[0].path, file);
+  assert.strictEqual(books[0].name, '新书');
+  assert.strictEqual(store.lastBookPath, file);
 });
